@@ -35,6 +35,8 @@ npm run dev
 
 Backend runs on: `http://localhost:3001`
 
+**Note for Windows users:** If you encounter build errors with `better-sqlite3`, you may need to install Windows SDK. The package.json has been updated to use version 11.0.0 which has better pre-built binary support. If issues persist, run `npm install --legacy-peer-deps`.
+
 ### 2. Frontend Setup
 
 ```bash
