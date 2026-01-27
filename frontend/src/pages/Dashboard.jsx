@@ -71,9 +71,9 @@ function Dashboard({ user }) {
                     <h2 className="text-2xl font-bold">Manager Dashboard</h2>
                     <button 
                         onClick={handleDownloadReport}
-                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                        className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 flex items-center gap-2"
                     >
-                        Download Daily Report
+                        <span>📥</span> Download Daily Report
                     </button>
                 </div>
 

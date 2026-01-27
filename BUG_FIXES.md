@@ -28,7 +28,7 @@
 - **Fix:** 
     1. Initialized `checkins` to `[]`.
     2. Added `Array.isArray(checkins)` check before `reduce` and `map` operations.
-- **Reason:** robust handling of API responses prevents white-screen crashes.
+- **Reason:** Robust handling of API responses prevents white-screen crashes.
 
 ## 5. Dashboard Data Accuracy (Timezone)
 - **Location:** `backend/routes/dashboard.js` (Analysis only - dependent on deployment)
@@ -41,3 +41,21 @@
 - **Issue:** Potential for unhandled `undefined` values in SQL parameters.
 - **Fix:** Explicitly default undefined values to `null` in SQL execution parameters.
 - **Reason:** `better-sqlite3` and SQL drivers generally prefer explicit `null` over `undefined`.
+
+## 7. Manager Client Visibility
+- **Location:** `backend/routes/checkin.js`
+- **Issue:** Managers were unable to see or check in with any clients because the backend strictly filtered clients by employee assignment. Managers typically need access to all clients.
+- **Fix:** Updated the query logic to bypass the `employee_clients` check if `req.user.role === 'manager'`.
+- **Reason:** Managers have global oversight and should not be restricted by specific client assignments.
+
+## 8. Dashboard Reference Error
+- **Location:** `frontend/src/pages/Dashboard.jsx`
+- **Issue:** The "Download Daily Report" button was calling `handleDownloadReport`, but the function was not defined in the component, causing a `ReferenceError`.
+- **Fix:** Implemented the `handleDownloadReport` function to call the `/reports/daily-summary` API and trigger a file download.
+- **Reason:** To enable the new manager reporting feature.
+
+## 9. Checkout 500 Error (SQL Syntax)
+- **Location:** `backend/routes/checkin.js`
+- **Issue:** The checkout query used double quotes (`"checked_in"`) for a string literal. In standard SQL (and SQLite), double quotes are for identifiers (like table/column names), while single quotes are for string literals. This caused the database to look for a column named `checked_in`, leading to an error.
+- **Fix:** Changed double quotes to single quotes (`'checked_in'`).
+- **Reason:** Correct SQL syntax compliance.

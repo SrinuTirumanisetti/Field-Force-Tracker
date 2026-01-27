@@ -55,7 +55,7 @@ router.post('/', authenticateToken, async (req, res) => {
 
         // Check for existing active check-in
         const [activeCheckins] = await pool.execute(
-            'SELECT * FROM checkins WHERE employee_id = ? AND status = "checked_in"',
+            "SELECT * FROM checkins WHERE employee_id = ? AND status = 'checked_in'",
             [req.user.id]
         );
 
@@ -110,7 +110,7 @@ router.post('/', authenticateToken, async (req, res) => {
 router.put('/checkout', authenticateToken, async (req, res) => {
     try {
         const [activeCheckins] = await pool.execute(
-            'SELECT * FROM checkins WHERE employee_id = ? AND status = "checked_in" ORDER BY checkin_time DESC LIMIT 1',
+            "SELECT * FROM checkins WHERE employee_id = ? AND status = 'checked_in' ORDER BY checkin_time DESC LIMIT 1",
             [req.user.id]
         );
 
@@ -119,7 +119,7 @@ router.put('/checkout', authenticateToken, async (req, res) => {
         }
 
         await pool.execute(
-            'UPDATE checkins SET checkout_time = CURRENT_TIMESTAMP, status = "checked_out" WHERE id = ?',
+            "UPDATE checkins SET checkout_time = CURRENT_TIMESTAMP, status = 'checked_out' WHERE id = ?",
             [activeCheckins[0].id]
         );
 
