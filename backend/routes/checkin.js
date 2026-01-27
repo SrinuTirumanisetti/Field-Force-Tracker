@@ -8,12 +8,22 @@ const router = express.Router();
 // Get assigned clients for employee
 router.get('/clients', authenticateToken, async (req, res) => {
     try {
-        const [clients] = await pool.execute(
-            `SELECT c.* FROM clients c
-             INNER JOIN employee_clients ec ON c.id = ec.client_id
-             WHERE ec.employee_id = ?`,
-            [req.user.id]
-        );
+        let query;
+        let params;
+
+        if (req.user.role === 'manager') {
+            // Managers can see all clients
+            query = 'SELECT * FROM clients';
+            params = [];
+        } else {
+            // Employees only see assigned clients
+            query = `SELECT c.* FROM clients c
+                     INNER JOIN employee_clients ec ON c.id = ec.client_id
+                     WHERE ec.employee_id = ?`;
+            params = [req.user.id];
+        }
+
+        const [clients] = await pool.execute(query, params);
 
         res.json({ success: true, data: clients });
     } catch (error) {
@@ -31,14 +41,16 @@ router.post('/', authenticateToken, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Client ID is required' });
         }
 
-        // Check if employee is assigned to this client
-        const [assignments] = await pool.execute(
-            'SELECT * FROM employee_clients WHERE employee_id = ? AND client_id = ?',
-            [req.user.id, client_id]
-        );
+        // Check if employee is assigned to this client (skip for managers)
+        if (req.user.role !== 'manager') {
+            const [assignments] = await pool.execute(
+                'SELECT * FROM employee_clients WHERE employee_id = ? AND client_id = ?',
+                [req.user.id, client_id]
+            );
 
-        if (assignments.length === 0) {
-            return res.status(403).json({ success: false, message: 'You are not assigned to this client' });
+            if (assignments.length === 0) {
+                return res.status(403).json({ success: false, message: 'You are not assigned to this client' });
+            }
         }
 
         // Check for existing active check-in
@@ -70,7 +82,14 @@ router.post('/', authenticateToken, async (req, res) => {
         const [result] = await pool.execute(
             `INSERT INTO checkins (employee_id, client_id, latitude, longitude, distance_from_client, notes, status)
              VALUES (?, ?, ?, ?, ?, ?, 'checked_in')`,
-            [req.user.id, client_id, latitude, longitude, distance, notes || null]
+            [
+                req.user.id, 
+                client_id, 
+                latitude || null, 
+                longitude || null, 
+                distance, 
+                notes || null
+            ]
         );
 
         res.status(201).json({

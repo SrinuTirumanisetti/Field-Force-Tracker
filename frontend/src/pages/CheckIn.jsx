@@ -95,9 +95,9 @@ function CheckIn({ user }) {
 
         try {
             const response = await api.post('/checkin', {
-                client_id: selectedClient,
-                latitude: location?.latitude,
-                longitude: location?.longitude,
+                client_id: parseInt(selectedClient),
+                latitude: location ? location.latitude : null,
+                longitude: location ? location.longitude : null,
                 notes: notes
             });
 

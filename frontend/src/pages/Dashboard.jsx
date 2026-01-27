@@ -26,6 +26,27 @@ function Dashboard({ user }) {
         }
     };
 
+    const handleDownloadReport = async () => {
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const response = await api.get(`/reports/daily-summary?date=${today}`);
+            
+            // Create a blob and download
+            const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `daily-report-${today}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Download failed', err);
+            setError('Failed to download report');
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex justify-center items-center h-64">
@@ -46,7 +67,15 @@ function Dashboard({ user }) {
     if (user.role === 'manager') {
         return (
             <div>
-                <h2 className="text-2xl font-bold mb-6">Manager Dashboard</h2>
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-2xl font-bold">Manager Dashboard</h2>
+                    <button 
+                        onClick={handleDownloadReport}
+                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                    >
+                        Download Daily Report
+                    </button>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                     <div className="bg-white p-6 rounded-lg shadow">

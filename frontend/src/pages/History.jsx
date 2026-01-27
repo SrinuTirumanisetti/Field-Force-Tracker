@@ -130,7 +130,7 @@ function History({ user }) {
 
             {/* History Table */}
             <div className="bg-white rounded-lg shadow overflow-hidden">
-                {checkins?.length > 0 ? (
+                {Array.isArray(checkins) && checkins.length > 0 ? (
                     <table className="w-full">
                         <thead className="bg-gray-50">
                             <tr>

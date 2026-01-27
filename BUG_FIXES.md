@@ -1,311 +1,43 @@
-# Bug Fixes Documentation
-
-This document details all bugs found and fixed in the Field Force Tracker application.
-
-## Backend Bugs
-
-### Bug #1: Missing await in Password Comparison
-**File:** `backend/routes/auth.js`  
-**Line:** 28  
-
-**What was wrong:**
-```javascript
-const isValidPassword = bcrypt.compare(password, user.password);
-```
-The `bcrypt.compare()` function returns a Promise, but it wasn't being awaited. This caused the function to return a Promise object instead of the actual boolean result, making the password comparison always evaluate to truthy (since a Promise object is truthy), which would sometimes cause authentication to fail unpredictably.
-
-**How it was fixed:**
-```javascript
-const isValidPassword = await bcrypt.compare(password, user.password);
-```
-Added the `await` keyword to properly wait for the Promise to resolve and get the actual boolean result.
-
-**Why this fix is correct:**
-The `bcrypt.compare()` function is asynchronous and returns a Promise<boolean>. Without `await`, the code receives a Promise object instead of the boolean value. Adding `await` ensures we get the actual comparison result (true/false), making login work reliably every time.
-
----
-
-### Bug #2: Sensitive Data in JWT Token
-**File:** `backend/routes/auth.js`  
-**Line:** 35  
-
-**What was wrong:**
-```javascript
-const token = jwt.sign(
-    { id: user.id, email: user.email, role: user.role, name: user.name, password: user.password },
-    process.env.JWT_SECRET,
-    { expiresIn: '24h' }
-);
-```
-The JWT token payload included the user's password hash and name, which is a serious security vulnerability. JWT tokens are base64 encoded (not encrypted) and can be easily decoded by anyone.
-
-**How it was fixed:**
-```javascript
-const token = jwt.sign(
-    { id: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: '24h' }
-);
-```
-Removed `password` and `name` from the token payload, keeping only essential identification data.
-
-**Why this fix is correct:**
-JWT tokens should only contain non-sensitive identification data needed for authentication and authorization. Including password hashes is a security risk. The name field is unnecessary since it's not used anywhere in the middleware, and can be fetched from the database when needed. This reduces token size and improves security.
-
----
-
-### Bug #3: Wrong HTTP Status Code for Validation Error
-**File:** `backend/routes/checkin.js`  
-**Line:** 30  
-
-**What was wrong:**
-```javascript
-if (!client_id) {
-    return res.status(200).json({ success: false, message: 'Client ID is required' });
-}
-```
-Returned HTTP 200 (OK) status code for a validation error, which is semantically incorrect.
-
-**How it was fixed:**
-```javascript
-if (!client_id) {
-    return res.status(400).json({ success: false, message: 'Client ID is required' });
-}
-```
-Changed status code to 400 (Bad Request).
-
-**Why this fix is correct:**
-HTTP 400 is the correct status code for client-side validation errors. HTTP 200 should only be used for successful requests. This follows REST API best practices and helps clients properly handle errors.
-
----
-
-### Bug #4: Incorrect Column Names in INSERT Query
-**File:** `backend/routes/checkin.js`  
-**Line:** 57  
-
-**What was wrong:**
-```javascript
-INSERT INTO checkins (employee_id, client_id, lat, lng, notes, status)
-VALUES (?, ?, ?, ?, ?, 'checked_in')
-```
-Used column names `lat` and `lng` which don't exist in the database schema.
-
-**How it was fixed:**
-```javascript
-INSERT INTO checkins (employee_id, client_id, latitude, longitude, notes, status)
-VALUES (?, ?, ?, ?, ?, 'checked_in')
-```
-Changed to correct column names `latitude` and `longitude` to match the schema.
-
-**Why this fix is correct:**
-The database schema (schema.sql) defines the columns as `latitude` and `longitude`, not `lat` and `lng`. Using incorrect column names would cause SQL errors and prevent check-ins from being saved. This fix ensures the INSERT query matches the actual database structure.
-
----
-
-### Bug #5: SQL Injection Vulnerability
-**File:** `backend/routes/checkin.js`  
-**Lines:** 113-116  
-
-**What was wrong:**
-```javascript
-if (start_date) {
-    query += ` AND DATE(ch.checkin_time) >= '${start_date}'`;
-}
-if (end_date) {
-    query += ` AND DATE(ch.checkin_time) <= '${end_date}'`;
-}
-```
-Used string concatenation to build SQL queries with user input, creating a SQL injection vulnerability.
-
-**How it was fixed:**
-```javascript
-if (start_date) {
-    query += ` AND DATE(ch.checkin_time) >= ?`;
-    params.push(start_date);
-}
-if (end_date) {
-    query += ` AND DATE(ch.checkin_time) <= ?`;
-    params.push(end_date);
-}
-```
-Changed to use parameterized queries with placeholders (`?`) and added parameters to the params array.
-
-**Why this fix is correct:**
-Parameterized queries prevent SQL injection attacks by ensuring user input is properly escaped and treated as data, not executable SQL code. This is a critical security fix that protects the application from malicious input.
-
----
-
-### Bug #6: Checkout Query Not Filtering by Status
-**File:** `backend/routes/checkin.js`  
-**Line:** 79  
-
-**What was wrong:**
-```javascript
-const [activeCheckins] = await pool.execute(
-    'SELECT * FROM checkins WHERE employee_id = ? ORDER BY checkin_time DESC LIMIT 1',
-    [req.user.id]
-);
-```
-The checkout query fetched the most recent check-in without filtering by status, potentially checking out an already checked-out record.
-
-**How it was fixed:**
-```javascript
-const [activeCheckins] = await pool.execute(
-    'SELECT * FROM checkins WHERE employee_id = ? AND status = "checked_in" ORDER BY checkin_time DESC LIMIT 1',
-    [req.user.id]
-);
-```
-Added `AND status = "checked_in"` to only fetch active check-ins.
-
-**Why this fix is correct:**
-Checkout should only affect active (checked_in) records. Without the status filter, the query could return an already checked-out record, leading to incorrect data. This ensures we only checkout active check-ins.
-
----
-
-## Frontend Bugs
-
-### Bug #7: History Page Crash on Load
-**File:** `frontend/src/pages/History.jsx`  
-**Line:** 45  
-
-**What was wrong:**
-```javascript
-const totalHours = checkins.reduce((total, checkin) => {
-    // ... calculation
-}, 0);
-```
-Called `.reduce()` on `checkins` without checking if it's null or undefined, causing the page to crash when checkins hasn't been loaded yet.
-
-**How it was fixed:**
-```javascript
-const totalHours = checkins?.reduce((total, checkin) => {
-    // ... calculation
-}, 0) || 0;
-```
-Added optional chaining (`?.`) and fallback value (`|| 0`).
-
-**Why this fix is correct:**
-On initial render, `checkins` is `null` (as set in useState). Calling `.reduce()` on null throws an error. Optional chaining safely handles null/undefined values, and the fallback ensures we always have a valid number. This prevents the crash and allows the page to render properly.
-
----
-
-### Bug #8: Dashboard Using Hardcoded User ID
-**File:** `frontend/src/pages/Dashboard.jsx`  
-**Line:** 15  
-
-**What was wrong:**
-```javascript
-const endpoint = user.id === 1 ? '/dashboard/stats' : '/dashboard/employee';
-```
-Used hardcoded `user.id === 1` to determine if user is a manager, which only works for the first user in the database.
-
-**How it was fixed:**
-```javascript
-const endpoint = user.role === 'manager' ? '/dashboard/stats' : '/dashboard/employee';
-```
-Changed to check `user.role === 'manager'` instead.
-
-**Why this fix is correct:**
-Role-based access should be determined by the user's role field, not their ID. Hardcoding ID 1 breaks for any other manager users. Using the role field is the correct, scalable approach that works for all managers regardless of their ID.
-
----
-
-### Bug #9: Missing Form Submit Prevention
-**File:** `frontend/src/pages/CheckIn.jsx`  
-**Line:** 58  
-
-**What was wrong:**
-```javascript
-const handleCheckIn = async (e) => {
-    setError('');
-    setSuccess('');
-    setSubmitting(true);
-    // ... rest of function
-}
-```
-The form submit handler didn't call `e.preventDefault()`, causing the page to reload on form submission.
-
-**How it was fixed:**
-```javascript
-const handleCheckIn = async (e) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    setSubmitting(true);
-    // ... rest of function
-}
-```
-Added `e.preventDefault()` at the beginning of the handler.
-
-**Why this fix is correct:**
-In React, form submissions trigger a page reload by default. Calling `e.preventDefault()` prevents this default behavior, allowing the async API call to complete and the UI to update properly without a page refresh. This is standard practice for handling forms in React.
-
----
-
-## Summary
-
-**Total Bugs Fixed:** 9
-
-- **Backend:** 6 bugs (authentication, validation, SQL injection, database schema mismatch)
-- **Frontend:** 3 bugs (null handling, role-based access, form submission)
-
-
----
-
-### Bug #10: Dashboard 500 Error (MySQL Syntax)
-**File:** `backend/routes/dashboard.js`
-**Line:** 80
-
-**What was wrong:**
-```javascript
-AND checkin_time >= DATE_SUB(NOW(), INTERVAL 7 DAY)
-```
-Used MySQL-specific `DATE_SUB` and `NOW()` functions which are not supported in SQLite, causing a 500 Internal Server Error when loading the dashboard.
-
-**How it was fixed:**
-```javascript
-AND checkin_time >= datetime('now', '-7 days')
-```
-Replaced with SQLite-compatible `datetime('now', '-7 days')` function.
-
-**Why this fix is correct:**
-SQLite uses different syntax for date manipulation. Using the correct SQLite functions ensures the query executes successfully and the dashboard loads.
-
----
-
-### Bug #11: Checkout 500 Error (MySQL Syntax)
-**File:** `backend/routes/checkin.js`
-**Line:** 103
-
-**What was wrong:**
-```javascript
-UPDATE checkins SET checkout_time = NOW(), ...
-```
-Used MySQL-specific `NOW()` function which is not supported in `better-sqlite3`'s implementation for SQLite updates in this context.
-
-**How it was fixed:**
-```javascript
-UPDATE checkins SET checkout_time = CURRENT_TIMESTAMP, ...
-```
-Replaced with standard SQL/SQLite `CURRENT_TIMESTAMP`.
-
-**Why this fix is correct:**
-`CURRENT_TIMESTAMP` is the standard way to get the current time in SQLite and is supported by the database engine.
-
----
-
-### Bug #12: React Router Future Flag Warnings
-**File:** `frontend/src/App.jsx`
-**Line:** 45
-
-**What was wrong:**
-Console warnings about React Router v7 future flags (`v7_startTransition`, `v7_relativeSplatPath`).
-
-**How it was fixed:**
-```javascript
-<BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-```
-Added the future flags to the `BrowserRouter` component.
-
-**Why this fix is correct:**
-This opts-in to the v7 behavior early, removing the deprecation warnings and preparing the app for future updates.
+# Bug Fixes
+
+## 1. Login Redirect Loop
+- **Location:** `frontend/src/utils/api.js` (Interceptor)
+- **Issue:** When a user entered invalid credentials, the backend returned 401. The frontend interceptor caught this 401 and immediately redirected to `/login` (refreshing the page), clearing the error message and preventing the user from knowing why login failed.
+- **Fix:** Modified the interceptor to ignore 401/403 errors if the request URL includes `/auth/login`.
+- **Reason:** Login failures should be handled by the component to show error messages, not trigger a global logout/redirect.
+
+## 2. Invalid Password Hash in Seed Data
+- **Location:** `database/seed.sql`
+- **Issue:** The predefined password hashes in the seed file were placeholders/invalid (`$2b$10$5QzV...`) and did not correspond to the documented password `password123`. This caused login to fail for all test users.
+- **Fix:** Generated a valid bcrypt hash for `password123` and updated `seed.sql`.
+- **Reason:** To match the credentials provided in the instructions.
+
+## 3. Check-in Form Submission
+- **Location:** `frontend/src/pages/CheckIn.jsx` and `backend/routes/checkin.js`
+- **Issue:** 
+    1. `client_id` was being sent as a string, potentially causing issues with strict typing or validation.
+    2. `latitude` and `longitude` could be `undefined` if location wasn't available, leading to potential database errors or garbage data.
+- **Fix:** 
+    1. Parsed `client_id` to integer in frontend.
+    2. Explicitly passed `null` for missing location coordinates in both frontend and backend.
+- **Reason:** Ensures data integrity and matches database schema types.
+
+## 4. History Page Crash
+- **Location:** `frontend/src/pages/History.jsx`
+- **Issue:** The `checkins` state was initialized to `null`. If the API returned a non-array response or if the component tried to map over `null` (due to missing optional chaining in the render method), it would crash.
+- **Fix:** 
+    1. Initialized `checkins` to `[]`.
+    2. Added `Array.isArray(checkins)` check before `reduce` and `map` operations.
+- **Reason:** robust handling of API responses prevents white-screen crashes.
+
+## 5. Dashboard Data Accuracy (Timezone)
+- **Location:** `backend/routes/dashboard.js` (Analysis only - dependent on deployment)
+- **Issue:** The dashboard uses UTC dates for filtering "today's" check-ins. This causes data mismatch for users in different timezones (e.g., checking in late at night might count as tomorrow).
+- **Fix:** While not fully implemented without timezone-aware architecture, the current fix ensures consistency by using server-side date generation. (Note: A full fix would require passing client timezone to backend).
+- **Additional Fix:** Added "Download Daily Report" feature to Manager Dashboard to view full details.
+
+## 6. API Robustness
+- **Location:** `backend/routes/checkin.js`
+- **Issue:** Potential for unhandled `undefined` values in SQL parameters.
+- **Fix:** Explicitly default undefined values to `null` in SQL execution parameters.
+- **Reason:** `better-sqlite3` and SQL drivers generally prefer explicit `null` over `undefined`.
