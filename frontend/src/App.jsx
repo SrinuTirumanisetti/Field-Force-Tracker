@@ -14,7 +14,7 @@ function App() {
         // Check for existing token on mount
         const token = localStorage.getItem('token');
         const userData = localStorage.getItem('user');
-        
+
         if (token && userData) {
             setUser(JSON.parse(userData));
         }
@@ -42,16 +42,16 @@ function App() {
     }
 
     return (
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
-                <Route 
-                    path="/login" 
+                <Route
+                    path="/login"
                     element={
                         user ? <Navigate to="/dashboard" /> : <Login onLogin={handleLogin} />
-                    } 
+                    }
                 />
-                <Route 
-                    path="/" 
+                <Route
+                    path="/"
                     element={
                         user ? <Layout user={user} onLogout={handleLogout} /> : <Navigate to="/login" />
                     }

@@ -249,4 +249,63 @@ In React, form submissions trigger a page reload by default. Calling `e.preventD
 - **Backend:** 6 bugs (authentication, validation, SQL injection, database schema mismatch)
 - **Frontend:** 3 bugs (null handling, role-based access, form submission)
 
-All bugs have been tested and verified to be fixed. The application now works reliably with proper security, error handling, and user experience.
+
+---
+
+### Bug #10: Dashboard 500 Error (MySQL Syntax)
+**File:** `backend/routes/dashboard.js`
+**Line:** 80
+
+**What was wrong:**
+```javascript
+AND checkin_time >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+```
+Used MySQL-specific `DATE_SUB` and `NOW()` functions which are not supported in SQLite, causing a 500 Internal Server Error when loading the dashboard.
+
+**How it was fixed:**
+```javascript
+AND checkin_time >= datetime('now', '-7 days')
+```
+Replaced with SQLite-compatible `datetime('now', '-7 days')` function.
+
+**Why this fix is correct:**
+SQLite uses different syntax for date manipulation. Using the correct SQLite functions ensures the query executes successfully and the dashboard loads.
+
+---
+
+### Bug #11: Checkout 500 Error (MySQL Syntax)
+**File:** `backend/routes/checkin.js`
+**Line:** 103
+
+**What was wrong:**
+```javascript
+UPDATE checkins SET checkout_time = NOW(), ...
+```
+Used MySQL-specific `NOW()` function which is not supported in `better-sqlite3`'s implementation for SQLite updates in this context.
+
+**How it was fixed:**
+```javascript
+UPDATE checkins SET checkout_time = CURRENT_TIMESTAMP, ...
+```
+Replaced with standard SQL/SQLite `CURRENT_TIMESTAMP`.
+
+**Why this fix is correct:**
+`CURRENT_TIMESTAMP` is the standard way to get the current time in SQLite and is supported by the database engine.
+
+---
+
+### Bug #12: React Router Future Flag Warnings
+**File:** `frontend/src/App.jsx`
+**Line:** 45
+
+**What was wrong:**
+Console warnings about React Router v7 future flags (`v7_startTransition`, `v7_relativeSplatPath`).
+
+**How it was fixed:**
+```javascript
+<BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+```
+Added the future flags to the `BrowserRouter` component.
+
+**Why this fix is correct:**
+This opts-in to the v7 behavior early, removing the deprecation warnings and preparing the app for future updates.
