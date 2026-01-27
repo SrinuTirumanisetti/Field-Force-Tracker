@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
+const { calculateDistance } = require('../config/distance');
 
 const router = express.Router();
 
@@ -53,16 +54,30 @@ router.post('/', authenticateToken, async (req, res) => {
             });
         }
 
+        // Get client coordinates for distance calculation
+        const [clients] = await pool.execute(
+            'SELECT latitude, longitude FROM clients WHERE id = ?',
+            [client_id]
+        );
+
+        let distance = null;
+        if (clients.length > 0 && latitude && longitude) {
+            const clientLat = parseFloat(clients[0].latitude);
+            const clientLon = parseFloat(clients[0].longitude);
+            distance = calculateDistance(latitude, longitude, clientLat, clientLon);
+        }
+
         const [result] = await pool.execute(
-            `INSERT INTO checkins (employee_id, client_id, latitude, longitude, notes, status)
-             VALUES (?, ?, ?, ?, ?, 'checked_in')`,
-            [req.user.id, client_id, latitude, longitude, notes || null]
+            `INSERT INTO checkins (employee_id, client_id, latitude, longitude, distance_from_client, notes, status)
+             VALUES (?, ?, ?, ?, ?, ?, 'checked_in')`,
+            [req.user.id, client_id, latitude, longitude, distance, notes || null]
         );
 
         res.status(201).json({
             success: true,
             data: {
                 id: result.insertId,
+                distance_from_client: distance,
                 message: 'Checked in successfully'
             }
         });

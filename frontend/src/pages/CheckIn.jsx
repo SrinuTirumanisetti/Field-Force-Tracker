@@ -11,6 +11,7 @@ function CheckIn({ user }) {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
+    const [distance, setDistance] = useState(null);
 
     useEffect(() => {
         fetchData();
@@ -55,6 +56,37 @@ function CheckIn({ user }) {
         }
     };
 
+    const calculateDistance = (lat1, lon1, lat2, lon2) => {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return Math.round(R * c * 100) / 100;
+    };
+
+    useEffect(() => {
+        if (selectedClient && location) {
+            const client = clients.find(c => c.id === parseInt(selectedClient));
+            if (client && client.latitude && client.longitude) {
+                const dist = calculateDistance(
+                    location.latitude,
+                    location.longitude,
+                    parseFloat(client.latitude),
+                    parseFloat(client.longitude)
+                );
+                setDistance(dist);
+            } else {
+                setDistance(null);
+            }
+        } else {
+            setDistance(null);
+        }
+    }, [selectedClient, location, clients]);
+
     const handleCheckIn = async (e) => {
         e.preventDefault();
         setError('');
@@ -70,10 +102,16 @@ function CheckIn({ user }) {
             });
 
             if (response.data.success) {
-                setSuccess('Checked in successfully!');
+                const dist = response.data.data.distance_from_client;
+                let message = 'Checked in successfully!';
+                if (dist !== null) {
+                    message += ` Distance: ${dist} km`;
+                }
+                setSuccess(message);
                 setSelectedClient('');
                 setNotes('');
-                fetchData(); // Refresh data
+                setDistance(null);
+                fetchData();
             } else {
                 setError(response.data.message);
             }
@@ -138,6 +176,19 @@ function CheckIn({ user }) {
                     </p>
                 ) : (
                     <p className="text-gray-500">Getting location...</p>
+                )}
+
+                {distance !== null && selectedClient && (
+                    <div className="mt-4 pt-4 border-t">
+                        <p className="text-sm text-gray-600">
+                            Distance to client: <span className="font-semibold text-blue-600">{distance} km</span>
+                        </p>
+                        {distance > 0.5 && (
+                            <div className="mt-2 bg-yellow-50 border border-yellow-200 text-yellow-800 px-3 py-2 rounded text-sm">
+                                ⚠️ You are far from the client location
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
 
