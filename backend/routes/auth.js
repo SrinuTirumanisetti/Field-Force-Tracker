@@ -8,11 +8,14 @@ const router = express.Router();
 // Login
 router.post('/login', async (req, res) => {
     try {
-        const { email, password } = req.body;
+        let { email, password } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({ success: false, message: 'Email and password required' });
         }
+
+        email = email.trim();
+        password = password.trim();
 
         const [users] = await pool.execute(
             'SELECT * FROM users WHERE email = ?',

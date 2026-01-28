@@ -13,7 +13,10 @@ function Login({ onLogin }) {
         setLoading(true);
 
         try {
-            const response = await api.post('/auth/login', { email, password });
+            const response = await api.post('/auth/login', { 
+                email: email.trim(), 
+                password: password.trim() 
+            });
             
             if (response.data.success) {
                 onLogin(response.data.data.user, response.data.data.token);
