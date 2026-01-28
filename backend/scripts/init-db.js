@@ -8,12 +8,12 @@ const dbPath = path.join(__dirname, '..', 'database.sqlite');
 const fs = require('fs');
 if (fs.existsSync(dbPath)) {
     fs.unlinkSync(dbPath);
-    console.log('Deleted existing database');
+    // console.log('Deleted existing database');
 }
 
 const db = new Database(dbPath);
 
-console.log('Initializing database...');
+// console.log('Initializing database...');
 
 // Create tables
 db.exec(`
@@ -70,7 +70,7 @@ db.exec(`
     CREATE INDEX idx_employee_clients ON employee_clients(employee_id, client_id);
 `);
 
-console.log('Tables created');
+// console.log('Tables created');
 
 // Hash password
 const hashedPassword = bcrypt.hashSync('password123', 10);
@@ -85,7 +85,7 @@ insertUser.run('Rahul Kumar', 'rahul@unolo.com', hashedPassword, 'employee', 1);
 insertUser.run('Priya Singh', 'priya@unolo.com', hashedPassword, 'employee', 1);
 insertUser.run('Vikram Patel', 'vikram@unolo.com', hashedPassword, 'employee', 1);
 
-console.log('Users created');
+// console.log('Users created');
 
 // Insert clients (locations in Gurugram/Delhi NCR)
 const insertClient = db.prepare(`
@@ -98,7 +98,8 @@ insertClient.run('Tech Solutions', 'DLF Phase 3, Gurugram', 28.4947, 77.0952);
 insertClient.run('Global Services', 'Udyog Vihar, Gurugram', 28.5011, 77.0838);
 insertClient.run('Innovate Inc', 'Sector 18, Noida', 28.5707, 77.3219);
 
-console.log('Clients created');
+// console.log('Clients created');
+// console.log('Database initialization complete');
 
 // Assign employees to clients
 const insertAssignment = db.prepare(`
@@ -110,10 +111,10 @@ insertAssignment.run(2, 2, '2024-01-01');
 insertAssignment.run(2, 3, '2024-01-15');
 insertAssignment.run(3, 2, '2024-01-01');
 insertAssignment.run(3, 4, '2024-01-01');
-insertAssignment.run(4, 1, '2024-01-10');
-insertAssignment.run(4, 5, '2024-01-10');
+insertAssignment.run(4, 2, '2023-10-25'); // Vikram -> XYZ Ltd
+insertAssignment.run(4, 4, '2023-10-25'); // Vikram -> Global Services
 
-console.log('Assignments created');
+// console.log('Assignments created');
 
 // Insert sample checkins
 const insertCheckin = db.prepare(`
@@ -128,7 +129,7 @@ insertCheckin.run(3, 2, '2024-01-15 09:30:00', '2024-01-15 12:00:00', 28.4595, 7
 insertCheckin.run(3, 4, '2024-01-15 13:00:00', '2024-01-15 16:00:00', 28.5011, 77.0838, 'New requirements', 'checked_out');
 insertCheckin.run(2, 1, '2024-01-16 09:00:00', null, 28.4950, 77.0890, 'Morning visit', 'checked_in');
 
-console.log('Sample checkins created');
+// console.log('Sample checkins created');
 
 db.close();
 console.log('\n✅ Database initialized successfully!');

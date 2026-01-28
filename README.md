@@ -1,128 +1,119 @@
-# Field Force Tracker
+# Unolo Field Force Tracker
 
-A full-stack application for tracking field employee check-ins, location, and daily reports.
+A web application for tracking field employee check-ins at client locations.
 
-## Setup Instructions
+## Tech Stack
 
-### Prerequisites
-- Node.js (v14+ recommended)
-- NPM
+- **Frontend:** React 18, Vite, Tailwind CSS, React Router
+- **Backend:** Node.js, Express.js, SQLite
+- **Authentication:** JWT
 
-### Installation
+## Quick Start
 
-1.  **Install Dependencies**
-    ```bash
-    # Install backend dependencies
-    cd backend
-    npm install
+### 1. Backend Setup
 
-    # Install frontend dependencies
-    cd ../frontend
-    npm install
-    ```
+```bash
+cd backend
+npm run setup    # Installs dependencies and initializes database
+cp .env.example .env
+npm run dev
+```
 
-2.  **Database Setup**
-    The project uses SQLite. You need to initialize the database with the schema and seed data.
-    *Note: The seed data has been updated with valid bcrypt hashes for the test users.*
+Backend runs on: `http://localhost:3001`
 
-    ```bash
-    # From the root directory or backend directory
-    cd backend
-    npm run seed
-    ```
+### 2. Frontend Setup
 
-3.  **Running the Application**
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-    *   **Backend:**
-        ```bash
-        cd backend
-        npm start
-        # Runs on http://localhost:3000
-        ```
-
-    *   **Frontend:**
-        ```bash
-        cd frontend
-        npm run dev
-        # Runs on http://localhost:5173
-        ```
+Frontend runs on: `http://localhost:5173`
 
 ### Test Credentials
-- **Manager:** `manager@unolo.com` / `password123`
-- **Employee:** `employee1@unolo.com` / `password123`
+
+| Role     | Email              | Password    |
+|----------|-------------------|-------------|
+| Manager  | manager@unolo.com | password123 |
+| Employee | rahul@unolo.com   | password123 |
+| Employee | priya@unolo.com   | password123 |
+
+## Project Structure
+
+```
+├── backend/
+│   ├── config/          # Database configuration
+│   ├── middleware/      # Auth middleware
+│   ├── routes/          # API routes
+│   ├── scripts/         # Database init scripts
+│   └── server.js        # Express app entry
+├── frontend/
+│   ├── src/
+│   │   ├── components/  # Reusable components
+│   │   ├── pages/       # Page components
+│   │   └── utils/       # API helpers
+│   └── index.html
+└── database/            # SQL schemas (reference only)
+```
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/login` - Login
+- `GET /api/auth/me` - Get current user
+
+### Check-ins
+- `GET /api/checkin/clients` - Get assigned clients
+- `POST /api/checkin` - Create check-in
+- `PUT /api/checkin/checkout` - Checkout
+- `GET /api/checkin/history` - Get check-in history
+- `GET /api/checkin/active` - Get active check-in
+
+### Dashboard
+- `GET /api/dashboard/stats` - Manager stats
+- `GET /api/dashboard/employee` - Employee stats
+
+### Reports (New)
+- `GET /api/reports/daily-summary` - Get daily summary report (Manager only)
+
+## Notes
+
+- The database uses SQLite - no external database setup required
+- Run `npm run init-db` to reset the database to initial state
 
 ---
 
-## Features Implemented
+## New Features & Architecture
 
-1.  **Real-time Distance Calculation**
-    - Calculates distance between Employee location (from browser) and Client location (from DB) using the Haversine formula.
-    - Displays a warning `⚠️ You are far from the client location` if the distance > 500m.
-    - Stores the calculated distance in the `checkins` table for historical verification.
+### 1. Real-time Distance Calculation
+- **Logic:** Uses Haversine formula to calculate distance between Employee GPS and Client location.
+- **Dual Validation:** Calculated on Frontend (for user warnings) and Backend (for data integrity).
+- **Warning:** UI warns if distance > 500m.
 
-2.  **Daily Summary Report (Manager Only)**
-    - Managers can download a daily activity report (JSON format) from the Dashboard.
-    - Report includes:
-        - List of active employees.
-        - Total hours worked per employee.
-        - Detailed check-in/out logs with distance data.
+### 2. Daily Summary Report
+- **Endpoint:** `GET /api/reports/daily-summary`
+- **Architecture:** Uses a single optimized SQL query with `LEFT JOIN` to fetch all employee data at once, avoiding the N+1 query problem.
+- **Access:** Restricted to Managers only.
 
-3.  **Manager Global Access**
-    - Managers can now view and check in with **all** clients, not just those explicitly assigned to them in the `employee_clients` table.
+### 3. Manager Access Control
+- **Decision:** Updated backend logic to allow Managers to view and check in with **all** clients, bypassing the standard employee assignment restrictions.
 
 ---
 
-## API Documentation
+## Testing
 
-### New Endpoints
+Backend unit tests have been added for the new Reports API using **Jest** and **Supertest**.
 
-#### `GET /api/reports/daily-summary`
-Generates a summary of check-ins and hours worked for a specific date.
+### Running Tests
 
-- **Auth Required:** Yes (Manager Role)
-- **Query Parameters:**
-    - `date` (optional): Date in `YYYY-MM-DD` format. Defaults to current server date.
-- **Success Response (200 OK):**
-    ```json
-    {
-      "date": "2023-10-27",
-      "total_employees_active": 5,
-      "total_hours_logged": 32.5,
-      "employee_summaries": [
-        {
-          "employee_id": 1,
-          "name": "John Doe",
-          "first_checkin": "09:00:00",
-          "last_checkout": "17:00:00",
-          "total_hours": 8.0,
-          "checkins": [
-            {
-              "client": "Client A",
-              "checkin_time": "09:00:00",
-              "distance_km": 0.2
-            }
-          ]
-        }
-      ]
-    }
-    ```
+```bash
+cd backend
+npx jest
+```
 
----
-
-## Architecture Decisions
-
-- **Database:** Chosen **SQLite** for zero-configuration deployment and portability, making it ideal for this assignment and local development. The schema uses standard relational patterns with Foreign Keys to ensure data integrity.
-
-- **Backend Pattern:** Used **Controller-Service** pattern (simplified into Routes/Config) to separate concerns. Database logic is wrapped in a Promise-based helper to maintain modern `async/await` syntax while using the efficient `better-sqlite3` driver.
-
-- **Distance Logic (Dual Validation):** Implemented the Haversine formula on both:
-    - **Frontend:** For immediate user feedback/warnings.
-    - **Backend:** For reliable data storage and validation, ensuring client-side manipulation doesn't corrupt historical data.
-
-- **Reporting Optimization:** Designed the Daily Summary API to use a single optimized SQL query with `LEFT JOIN`s to fetch all data at once. This prevents the "N+1 Query Problem" where the server would otherwise query the database for every single employee.
-
-- **Manager Access Control:** Logic was updated to allow Managers global visibility of clients. While regular employees are restricted to their assigned clients (via `employee_clients` table), Managers bypass this check to ensure they can oversee all operations.
-
-- **Robust Error Handling:**
-    - Explicitly handling `undefined` location data by converting to `null` for SQL compatibility.
-    - API Interceptors on the frontend to gracefully handle 401/403 errors without causing redirect loops.
+### Test Coverage
+- **Validation:** Verifies that missing or invalid parameters return 400.
+- **Security:** Verifies that unauthorized users are rejected (403).
+- **Functionality:** Verifies that valid requests return the correct data structure.
+- **Error Handling:** Verifies that database errors are handled gracefully (500).
